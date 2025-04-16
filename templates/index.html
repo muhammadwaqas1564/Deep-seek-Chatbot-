@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Chatbot</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/themes/prism.min.css" rel="stylesheet"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.25.0/prism.min.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #f1f1f1;
+      color: #333;
+      display: flex;
+      height: 100vh;
+    }
+    .sidebar {
+      width: 25%;
+      background-color: #ffffff;
+      border-right: 1px solid #ddd;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    .sidebar h2 {
+      font-size: 18px;
+      margin-bottom: 10px;
+    }
+    .session-item {
+      display: flex;
+      justify-content: space-between; /* Ensures content is spread out */
+      align-items: center;
+      margin: 5px 0;
+    }
+    .session-item:hover {
+      background-color: #d0d0d0;
+    }
+    .main {
+      width: 75%;
+      display: flex;
+      flex-direction: column;
+    }
+    .chat-header {
+      background-color: #ffffff;
+      padding: 15px;
+      text-align: center;
+      border-bottom: 1px solid #ddd;
+      font-size: 20px;
+      font-weight: bold;
+    }
+    .chat-box {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      background-color: #fff;
+    }
+    .message {
+      margin-bottom: 10px;
+      max-width: 70%;
+      padding: 10px 15px;
+      border-radius: 15px;
+      line-height: 1.4;
+      word-wrap: break-word;
+    }
+    .user-message {
+      background-color: #4b56d2;
+      color: #fff;
+      margin-left: auto;
+    }
+    .bot-message {
+      background-color: #e6e6f9;
+      color: #222;
+      margin-right: auto;
+    }
+    .input-container {
+      display: flex;
+      padding: 10px;
+      border-top: 1px solid #ddd;
+      background-color: #fff;
+    }
+    input[type="text"] {
+      flex: 1;
+      padding: 12px;
+      font-size: 16px;
+      border-radius: 20px;
+      border: 1px solid #ccc;
+    }
+    button {
+      margin-left: 10px;
+      background-color: #4b56d2;
+      color: #fff;
+      border: none;
+      border-radius: 20px;
+      padding: 12px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #3c46a1;
+    }
+    .loading {
+      font-style: italic;
+      color: #888;
+      margin-top: 10px;
+    }
+
+    pre {
+      background-color: #f5f5f5;
+      padding: 15px;
+      border-radius: 10px;
+      margin: 10px 0;
+      overflow-x: auto;
+    }
+
+    code {
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      color: #333;
+    }
+
+    button {
+      margin-left: 10px;
+      background-color: #4b56d2;
+      color: #fff;
+      border: none;
+      border-radius: 20px;
+      padding: 12px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-bottom: 20px; /* Add space below the button */
+    }
+
+    button:hover {
+      background-color: #3c46a1;
+    }
+
+    button:focus {
+      outline: none;
+    }
+
+    .delete-btn {
+      background-color: #ff4d4d;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      padding: 5px 10px;
+      font-size: 12px;
+      align-items: center;
+      cursor: pointer;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .delete-btn:hover {
+      background-color: #e60000;
+    }
+
+    .delete-btn:focus {
+      outline: none;
+    }
+
+  </style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <h2>Chat Sessions</h2>
+    <!-- New Chat button -->
+    <button onclick="startNewChat()">New Chat</button>
+    <div id="sessionList">
+      <!-- Session items will be loaded here via JavaScript -->
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="chat-header">DeepSeek Chatbot</div>
+    <div class="chat-box" id="chatBox">
+      <!-- Current chat conversation appears here -->
+    </div>
+    <div class="input-container">
+      <input type="text" id="userMessage" placeholder="Ask me something..." onkeydown="handleEnter(event)">
+      <button onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+
+  <script>
+    // Load and display saved chat sessions
+    function loadSessions() {
+      fetch('/sessions')
+        .then(response => response.json())
+        .then(data => {
+          const sessionList = document.getElementById('sessionList');
+          sessionList.innerHTML = '';
+          data.sessions.forEach((filename, index) => {
+            const item = document.createElement('div');
+            item.className = 'session-item';
+            
+            // Add serial number before session name
+            const sessionName = filename.replace('chat_history_', '').replace('.json', '');
+            item.textContent = `${index + 1}. ${sessionName}`;
+
+            // Create the delete button
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = 'Delete';
+            deleteButton.className = 'delete-btn';
+            deleteButton.onclick = () => deleteSession(filename); // Call the delete function on click
+
+            // Append the delete button to the session item
+            item.appendChild(deleteButton);
+
+            item.onclick = () => loadSession(filename);
+            sessionList.appendChild(item);
+          });
+        })
+        .catch(error => console.error("Error loading sessions:", error));
+    }
+
+    // Delete a session
+    function deleteSession(filename) {
+      if (confirm("Are you sure you want to delete this session?")) {
+        fetch(`/delete_session?filename=${filename}`, { method: 'DELETE' })
+          .then(response => {
+            if (response.ok) {
+              loadSessions(); // Reload the sessions list after deletion
+            } else {
+              alert("Error deleting session.");
+            }
+          })
+          .catch(error => console.error("Error deleting session:", error));
+    }
+  }
+
+
+    // Load a particular session's conversation and display in chat-box
+    function loadSession(filename) {
+      fetch(`/load_session?filename=${filename}`)
+        .then(response => response.json())
+        .then(data => {
+          const chatBox = document.getElementById('chatBox');
+          chatBox.innerHTML = '';
+          if (data.conversation) {
+            data.conversation.forEach(msg => {
+              let messageClass = msg.role === 'user' ? 'user-message' : 'bot-message';
+              chatBox.innerHTML += `<div class="message ${messageClass}">${msg.content}</div>`;
+            });
+          }
+          chatBox.scrollTop = chatBox.scrollHeight;
+        })
+        .catch(err => console.error("Error loading session:", err));
+    }
+
+    // Send message when Enter key is pressed
+    function handleEnter(e) {
+      if (e.key === 'Enter') {
+        sendMessage();
+      }
+    }
+
+    function sendMessage() {
+      const input = document.getElementById('userMessage');
+      const chatBox = document.getElementById('chatBox');
+      const message = input.value.trim();
+      if (message === "") return;
+
+      // Append user's message
+      chatBox.innerHTML += `<div class="message user-message">${message}</div>`;
+      chatBox.innerHTML += `<div class="loading" id="loading">Bot is typing...</div>`;
+      input.value = "";
+      chatBox.scrollTop = chatBox.scrollHeight;
+
+      fetch('/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+      })
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("loading").remove();
+        const reply = data.reply || "Error getting response.";
+
+        // Check if the bot reply contains code (i.e., starts and ends with backticks)
+        let formattedReply = reply;
+        if (isCode(reply)) {
+          // Strip backticks and format as code block with syntax highlighting
+          formattedReply = formatCode(reply);
+        }
+
+        chatBox.innerHTML += `<div class="message bot-message">${formattedReply}</div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+        
+        // Apply syntax highlighting with Prism.js
+        Prism.highlightAll();
+      })
+      .catch(err => console.error("Error:", err));
+    }
+
+    // Check if the text is a code snippet
+    function isCode(text) {
+      return text.trim().startsWith('```') && text.trim().endsWith('```');
+    }
+
+    // Format code as a block with syntax highlighting
+    function formatCode(code) {
+      const codeContent = code.trim().slice(3, -3);  // Remove the backticks
+      return `<pre><code class="language-python">${codeContent}</code></pre>`;
+    }
+
+    // Start a new chat
+    function startNewChat() {
+      document.getElementById('chatBox').innerHTML = '';
+      document.getElementById('userMessage').value = '';
+    }
+
+    // Initial load of saved sessions
+    loadSessions();
+  </script>
+
+</body>
+</html>
